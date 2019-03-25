@@ -31,6 +31,10 @@ int main(int argc, char * argv[])
    // GetLorentzAngle(std::string method);
    WriteOutputs(saveHistos_);
    
+   for ( auto la : la_ ) std::cout << la.first << ": " << la.second << std::endl;
+   
+   std::cout << "SiStripLAMonitor finished!" << std::endl;
+   
    return 0;
 }
 
@@ -80,10 +84,13 @@ void ProcessTheModule(const unsigned int & i)
    
    if ( locationtype == "" ) return;
    
+   la_[locationtype] = la_db_[mod];
+   
    TVector3 localdir(localdirx_->at(i),localdiry_->at(i),localdirz_->at(i));
    int sign = orientation_[mod];
-   float tantheta = sign*TMath::Tan(localdir.Theta());
+   float tantheta = TMath::Tan(localdir.Theta());
    float cosphi   = TMath::Cos(localdir.Phi());
+   float theta    = localdir.Theta();
    
    unsigned short nstrips  = nstrips_->at(i);
    float variance = variance_->at(i);
@@ -94,20 +101,27 @@ void ProcessTheModule(const unsigned int & i)
    
    
    h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,nstrips);
+   h2_[Form("%s_tanthetatrk_nstrip",locationtype.c_str())] -> Fill(sign*tantheta,nstrips);
+   h2_[Form("%s_cosphitrk_nstrip",locationtype.c_str())] -> Fill(sign*cosphi,nstrips);
+   h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())] -> Fill(sign*theta*cosphi,nstrips);
+   
+   
    if ( nstrips == 2 )
    {
       h1_[Form("%s_variance_w2"    ,locationtype.c_str())] -> Fill(variance);
       h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      h2_ct_var2_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+      h2_[Form("%s_thetatrk_var2",locationtype.c_str())] -> Fill(sign*cosphi*theta,variance);
+      if ( saveHistosMods_ ) h2_ct_var2_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
    }
    if ( nstrips == 3 )
    {
       h1_[Form("%s_variance_w3"    ,locationtype.c_str())] -> Fill(variance);
       h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      h2_ct_var3_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+      h2_[Form("%s_thetatrk_var3",locationtype.c_str())] -> Fill(sign*cosphi*theta,variance);
+      if ( saveHistosMods_ ) h2_ct_var3_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
    }
    
-   h2_ct_w_m_[mod] -> Fill(sign*cosphi*tantheta,nstrips);
+   if ( saveHistosMods_ ) h2_ct_w_m_[mod] -> Fill(sign*cosphi*tantheta,nstrips);
    
    
 }
@@ -127,14 +141,15 @@ void AnalyzeTheTree()
             std::string filename = ls_file.path().filename().string();
             if ( filename.find(fileprefix) == std::string::npos || filename.find(".root") == std::string::npos ) continue;
             
-            std::cout << "Working on file : " << ls_file.path().string() << std::endl;
-            std::cout << "..." << std::endl;
+            std::cout << "Working on file : " << ls_file.path().string();
+            std::cout << " ..." << std::endl;
             
 //            TFile * f = TFile::Open("root://cms-xrd-global.cern.ch//store/group/dpg_tracker_strip/comm_tracker/Strip/Calibration/calibrationtree/GR17_Aag/calibTree_302031_50.root","OLD");
             TFile * f = TFile::Open(ls_file.path().string().c_str(),"OLD");
             
             // INFO TREE - should be called once per run, one file is enough. Fill maps with information for each module
             std::string infotree_path = Form("%s/tree",infoTreePath_.c_str());
+            
             if ( orientation_.empty() )
             {
                TTree * infotree = (TTree*) f->Get(infotree_path.c_str());
@@ -142,6 +157,7 @@ void AnalyzeTheTree()
             }
             // CALIB TREE
             std::string tree_path = Form("gainCalibrationTree%s/tree",calibrationMode_.c_str());
+            if ( infolocalb_->at(0) < 0.1 ) tree_path = Form("gainCalibrationTree%s0T/tree",calibrationMode_.c_str());
             TTree * tree = (TTree*) f->Get(tree_path.c_str());
             
             CalibTreeBranches(tree);
@@ -172,6 +188,12 @@ void AnalyzeTheTree()
 void WriteOutputs(const bool & savehistos)
 {
    if ( ! savehistos ) return;
+   // add the run number to the output file(s)
+   if ( infolocalb_->at(0) < 0.1 )
+      outputfile_ = std::regex_replace( outputfile_, std::regex(".root"), Form("_0T_%d.root",run_) );
+   else
+      outputfile_ = std::regex_replace( outputfile_, std::regex(".root"), Form("_4T_%d.root",run_) );
+
    TFile out(outputfile_.c_str(),"RECREATE");
    for ( auto h : h1_ )
    {
@@ -291,15 +313,21 @@ void InfoTreeBranches(TTree * tree)
 {
    tree -> SetBranchAddress("rawid", &inforawid_);
    tree -> SetBranchAddress("globalZofunitlocalY", &infoglobalZofunitlocalY_);
+   tree -> SetBranchAddress("localB", &infolocalb_);
+   tree -> SetBranchAddress("lorentzAngle", &infola_);
    tree->GetEntry(0);
    for ( size_t im = 0; im < inforawid_->size() ; ++im )
    {
       int mod = inforawid_->at(im);
       orientation_[mod] = infoglobalZofunitlocalY_->at(im) < 0 ? -1 : 1;
+      la_db_[mod] = infola_->at(im);
       // histograms for each module
-      h2_ct_w_m_[mod] = new TH2F (Form("ct_w_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",300,-1.5,1.5,20,0,20);	
-      h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",300,-1.5,1.5,100,0,1);	
-      h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",300,-1.5,1.5,100,0,1);	
+      if ( saveHistosMods_ )
+      {
+         h2_ct_w_m_[mod] = new TH2F (Form("ct_w_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,20,0,20);	
+         h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,100,0,1);	
+         h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,100,0,1);	
+      }
    }
 }               
 
@@ -358,17 +386,20 @@ int Init(int argc, char * argv[])
             h1_[Form("%s_variance_w2" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w2",locationtype.c_str()),     "", 100,0,1);
             h1_[Form("%s_variance_w3" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w3",locationtype.c_str()),     "", 100,0,1);
             
-            h2_[Form("%s_tanthetatrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthetatrk_nstrip",locationtype.c_str()), "", 300,-1.5,1.5,20,0,20);
+            h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
+            h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var2",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
+            h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var3",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
+            h2_[Form("%s_tanthetatrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthetatrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
             h2_[Form("%s_cosphitrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_cosphitrk_nstrip",locationtype.c_str()), "", 40,-1,1,20,0,20);
-            h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_nstrip",locationtype.c_str()), "", 300,-1.5,1.5,20,0,20);
-            h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var2",locationtype.c_str()), "", 300,-1.5,1.5,100,0,1);
-            h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var3",locationtype.c_str()), "", 300,-1.5,1.5,100,0,1);
+            h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
+            h2_[Form("%s_thetatrk_var2",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_var2",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
+            h2_[Form("%s_thetatrk_var3",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_var3",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
          }
       }
    }
    
    // add the run number to the output file(s)
-   outputfile_ = std::regex_replace( outputfile_, std::regex(".root"), Form("_%d.root",run_) );
+//   outputfile_ = std::regex_replace( outputfile_, std::regex(".root"), Form("_%d.root",run_) );
    
    return 0;
 }

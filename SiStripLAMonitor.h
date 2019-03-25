@@ -25,8 +25,11 @@ std::string ModuleLocationType(const unsigned int &);
 // la info tree
 std::vector<unsigned int> * inforawid_               = nullptr;
 std::vector<float>        * infoglobalZofunitlocalY_ = nullptr;
+std::vector<float>        * infolocalb_              = nullptr;
+std::vector<float>        * infola_                  = nullptr;
 
 std::map<unsigned int,int> orientation_;
+std::map<unsigned int,float> la_db_;
 
 // event data
 unsigned int eventnumber_ = 0;
@@ -61,6 +64,9 @@ std::map<std::string, TProfile*> hp_;
 // info
 std::map<std::string,int> nlayers_;
 std::vector<std::string> modtypes_;
+
+std::map<std::string,float> la_;
+
 
 
 #endif
