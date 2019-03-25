@@ -21,22 +21,59 @@ namespace fs = boost::filesystem;
 
 int main(int argc, char * argv[])
 {
-   
    if ( Init(argc,argv) == -1 )
    {
       std::cout << "*** SiStripLAMonitor ***: -errors- Please check your configuration file" << std::endl;
       return -1;
    }
    AnalyzeTheTree();
-   // GetLorentzAngle(std::string method);
    WriteOutputs(saveHistos_);
-   
-   for ( auto la : la_ ) std::cout << la.first << ": " << la.second << std::endl;
    
    std::cout << "SiStripLAMonitor finished!" << std::endl;
    
    return 0;
 }
+
+int Init(int argc, char * argv[])
+{
+   // read configuration
+   if ( SiStripLAMonitorConfig(argc, argv) != 0 ) return -1;
+   
+   //
+   nlayers_["TIB"] = 4;
+   nlayers_["TOB"] = 6;
+   modtypes_.push_back("s");
+   modtypes_.push_back("a");
+   
+   // prepare histograms
+   for ( auto & layers : nlayers_)
+   {
+      std::string subdet = layers.first;
+      for ( int l = 1; l <= layers.second; ++l )
+      {
+         for ( auto & t : modtypes_ )
+         {
+            std::string locationtype = Form("%s_L%d%s",subdet.c_str(),l,t.c_str());
+            //std::cout << "preparing histograms for " << locationtype << std::endl;
+            h1_[Form("%s_nstrips"    ,locationtype.c_str())]  = new TH1F (Form("%s_nstrips",locationtype.c_str()),     "", 20,0,20);
+            h1_[Form("%s_tanthetatrk",locationtype.c_str())]  = new TH1F (Form("%s_tanthetatrk",locationtype.c_str()), "", 300,-1.5,1.5);
+            h1_[Form("%s_cosphitrk",locationtype.c_str())]    = new TH1F (Form("%s_cosphitrk",locationtype.c_str()), "", 40,-1,1);
+            h1_[Form("%s_variance_w2" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w2",locationtype.c_str()),     "", 100,0,1);
+            h1_[Form("%s_variance_w3" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w3",locationtype.c_str()),     "", 100,0,1);
+            
+            h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_nstrip",locationtype.c_str()), "", 360, -0.9, 0.9, 20, 0, 20);
+            h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())]   = new TH2F (Form("%s_tanthcosphtrk_var2",locationtype.c_str())  , "", 360, -0.9, 0.9, 50, 0,  1);
+            h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())]   = new TH2F (Form("%s_tanthcosphtrk_var3",locationtype.c_str())  , "", 360, -0.9, 0.9, 50, 0,  1);
+         }
+      }
+   }
+   
+   // histograms per module require info avaialble in the info tree, namely the module id
+   // in principle could use all modules but where can I find them easily?
+   
+   return 0;
+}
+
 
 void ProcessTheEvent()
 {
@@ -90,7 +127,6 @@ void ProcessTheModule(const unsigned int & i)
    int sign = orientation_[mod];
    float tantheta = TMath::Tan(localdir.Theta());
    float cosphi   = TMath::Cos(localdir.Phi());
-   float theta    = localdir.Theta();
    
    unsigned short nstrips  = nstrips_->at(i);
    float variance = variance_->at(i);
@@ -99,25 +135,21 @@ void ProcessTheModule(const unsigned int & i)
    h1_[Form("%s_tanthetatrk",locationtype.c_str())] -> Fill(sign*tantheta);
    h1_[Form("%s_cosphitrk"  ,locationtype.c_str())] -> Fill(cosphi);
    
-   
+   // nstrips
    h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,nstrips);
-   h2_[Form("%s_tanthetatrk_nstrip",locationtype.c_str())] -> Fill(sign*tantheta,nstrips);
-   h2_[Form("%s_cosphitrk_nstrip",locationtype.c_str())] -> Fill(sign*cosphi,nstrips);
-   h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())] -> Fill(sign*theta*cosphi,nstrips);
    
-   
+   // variance for width == 2
    if ( nstrips == 2 )
    {
       h1_[Form("%s_variance_w2"    ,locationtype.c_str())] -> Fill(variance);
       h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      h2_[Form("%s_thetatrk_var2",locationtype.c_str())] -> Fill(sign*cosphi*theta,variance);
       if ( saveHistosMods_ ) h2_ct_var2_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
    }
+   // variance for width == 3
    if ( nstrips == 3 )
    {
       h1_[Form("%s_variance_w3"    ,locationtype.c_str())] -> Fill(variance);
       h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      h2_[Form("%s_thetatrk_var3",locationtype.c_str())] -> Fill(sign*cosphi*theta,variance);
       if ( saveHistosMods_ ) h2_ct_var3_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
    }
    
@@ -135,21 +167,18 @@ void AnalyzeTheTree()
    {
       if ( fs::is_directory(calibtree_path) )
       {
-         for (fs::directory_entry& ls_file : fs::directory_iterator(calibtree_path))
+         for (fs::directory_entry& ls_file : fs::directory_iterator(calibtree_path)) // LOOP on RUNS!!!
          {
             std::string fileprefix = Form("calibTree_%d",run_);
             std::string filename = ls_file.path().filename().string();
             if ( filename.find(fileprefix) == std::string::npos || filename.find(".root") == std::string::npos ) continue;
             
             std::cout << "Working on file : " << ls_file.path().string();
-            std::cout << " ..." << std::endl;
             
-//            TFile * f = TFile::Open("root://cms-xrd-global.cern.ch//store/group/dpg_tracker_strip/comm_tracker/Strip/Calibration/calibrationtree/GR17_Aag/calibTree_302031_50.root","OLD");
             TFile * f = TFile::Open(ls_file.path().string().c_str(),"OLD");
             
             // INFO TREE - should be called once per run, one file is enough. Fill maps with information for each module
             std::string infotree_path = Form("%s/tree",infoTreePath_.c_str());
-            
             if ( orientation_.empty() )
             {
                TTree * infotree = (TTree*) f->Get(infotree_path.c_str());
@@ -159,10 +188,9 @@ void AnalyzeTheTree()
             std::string tree_path = Form("gainCalibrationTree%s/tree",calibrationMode_.c_str());
             if ( infolocalb_->at(0) < 0.1 ) tree_path = Form("gainCalibrationTree%s0T/tree",calibrationMode_.c_str());
             TTree * tree = (TTree*) f->Get(tree_path.c_str());
-            
             CalibTreeBranches(tree);
             
-            // loop the events
+            // LOOP on EVENTS!!!
             unsigned int nentries = tree->GetEntries();
             for (unsigned int ientry = 0; ientry < nentries; ientry++)
             {
@@ -220,29 +248,6 @@ void WriteOutputs(const bool & savehistos)
       {
          if ( h.second -> GetEntries() == 0 ) continue;
          WriteOutputsModules(out,h.second);
-         
-//          if ( std::string(h.second->GetName()).find("TIB") != std::string::npos )
-//          {
-//             for ( int i = 1 ; i <= nlayers_["TIB"]; ++i )
-//             {
-//                if ( std::string(h.second->GetName()).find(Form("TIB_L%d",i)) != std::string::npos )
-//                out.cd(Form("modules/TIB/L%d",i));
-//             }
-//          }
-//          if ( std::string(h.second->GetName()).find("TOB") != std::string::npos )
-//          {
-//             for ( int i = 1 ; i <= nlayers_["TOB"]; ++i )
-//             {
-//                if ( std::string(h.second->GetName()).find(Form("TOB_L%d",i)) != std::string::npos )
-//                out.cd(Form("modules/TOB/L%d",i));
-//             }
-//          }
-//          h.second -> Write();
-//          if ( saveHistosProfile_ )
-//          {
-//             TProfile * hp = (TProfile*) h.second -> ProfileX();
-//             hp -> Write();
-//          }
       }
       for ( auto h : h2_ct_var2_m_ )
       {
@@ -324,9 +329,9 @@ void InfoTreeBranches(TTree * tree)
       // histograms for each module
       if ( saveHistosMods_ )
       {
-         h2_ct_w_m_[mod] = new TH2F (Form("ct_w_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,20,0,20);	
-         h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,100,0,1);	
-         h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"",3000,-1.5,1.5,100,0,1);	
+         h2_ct_w_m_[mod]    = new TH2F (Form("ct_w_m_%s_%d",ModuleLocationType(mod).c_str(),mod)   ,"", 360, -0.9, 0.9, 20, 0, 20);	
+         h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"", 360, -0.9, 0.9, 50, 0,  1);	
+         h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"", 360, -0.9, 0.9, 50, 0,  1);	
       }
    }
 }               
@@ -357,50 +362,5 @@ std::string ModuleLocationType(const unsigned int & mod)
   return d_l_t;
 
 
-}
-
-int Init(int argc, char * argv[])
-{
-   // read configuration
-   if ( SiStripLAMonitorConfig(argc, argv) != 0 ) return -1;
-   
-   //
-   nlayers_["TIB"] = 4;
-   nlayers_["TOB"] = 6;
-   modtypes_.push_back("s");
-   modtypes_.push_back("a");
-   
-   // prepare histograms
-   for ( auto & layers : nlayers_)
-   {
-      std::string subdet = layers.first;
-      for ( int l = 1; l <= layers.second; ++l )
-      {
-         for ( auto & t : modtypes_ )
-         {
-            std::string locationtype = Form("%s_L%d%s",subdet.c_str(),l,t.c_str());
-            //std::cout << "preparing histograms for " << locationtype << std::endl;
-            h1_[Form("%s_nstrips"    ,locationtype.c_str())] = new TH1F (Form("%s_nstrips",locationtype.c_str()),     "", 20,0,20);
-            h1_[Form("%s_tanthetatrk",locationtype.c_str())] = new TH1F (Form("%s_tanthetatrk",locationtype.c_str()), "", 300,-1.5,1.5);
-            h1_[Form("%s_cosphitrk",locationtype.c_str())]   = new TH1F (Form("%s_cosphitrk",locationtype.c_str()), "", 40,-1,1);
-            h1_[Form("%s_variance_w2" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w2",locationtype.c_str()),     "", 100,0,1);
-            h1_[Form("%s_variance_w3" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w3",locationtype.c_str()),     "", 100,0,1);
-            
-            h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
-            h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var2",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
-            h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_var3",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
-            h2_[Form("%s_tanthetatrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthetatrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
-            h2_[Form("%s_cosphitrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_cosphitrk_nstrip",locationtype.c_str()), "", 40,-1,1,20,0,20);
-            h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_nstrip",locationtype.c_str()), "", 3000,-1.5,1.5,20,0,20);
-            h2_[Form("%s_thetatrk_var2",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_var2",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
-            h2_[Form("%s_thetatrk_var3",locationtype.c_str())] = new TH2F (Form("%s_thetatrk_var3",locationtype.c_str()), "", 3000,-1.5,1.5,100,0,1);
-         }
-      }
-   }
-   
-   // add the run number to the output file(s)
-//   outputfile_ = std::regex_replace( outputfile_, std::regex(".root"), Form("_%d.root",run_) );
-   
-   return 0;
 }
 
