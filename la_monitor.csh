@@ -6,8 +6,11 @@ if ( $#argv < 1 ) then
 endif
 
 set cfg = $1
+set suffix = `basename $cfg .cfg | awk -F "la_monitor_" '{print $2}'`
+
 set rootdir = `cat $cfg | grep CalibTreeDirectory | awk '{print $3}'`
-set anadir = $rootdir/analysis
+set datatype = `basename $rootdir`
+set anadir = $rootdir"/analysis_"$suffix"_"$datatype
 if ( ! -d $anadir ) then
    mkdir $anadir
 endif
