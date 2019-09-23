@@ -59,6 +59,10 @@ std::map<int, TH2F*> h2_ct_w_m_;
 std::map<int, TH2F*> h2_ct_var2_m_;
 std::map<int, TH2F*> h2_ct_var3_m_;
 
+std::map<int, TH2F*> h2_t_w_m_;
+std::map<int, TH2F*> h2_t_var2_m_;
+std::map<int, TH2F*> h2_t_var3_m_;
+
 std::map<std::string, TProfile*> hp_;
 
 // info

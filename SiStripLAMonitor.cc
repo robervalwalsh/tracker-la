@@ -29,6 +29,13 @@ int main(int argc, char * argv[])
    AnalyzeTheTree();
    WriteOutputs(saveHistos_);
    
+   std::cout << "-----" << std::endl;
+   for ( auto & la : la_ )
+   {
+      std::cout << la.first << "  " << la.second << std::endl;
+   }
+   std::cout << "-----" << std::endl;
+   
    std::cout << "SiStripLAMonitor finished!" << std::endl;
    
    return 0;
@@ -38,6 +45,11 @@ int Init(int argc, char * argv[])
 {
    // read configuration
    if ( SiStripLAMonitorConfig(argc, argv) != 0 ) return -1;
+   
+   h1_["track_pt"]        = new TH1F ("track_pt","", 400,0,200);
+   h1_["track_eta"]       = new TH1F ("track_eta","", 240,-3,3);
+   h1_["track_validhits"] = new TH1F ("track_validhits","", 50,0,50);
+   h1_["track_chi2ndof"]  = new TH1F ("track_chi2ndof","", 60,0,3);
    
    //
    nlayers_["TIB"] = 4;
@@ -55,15 +67,18 @@ int Init(int argc, char * argv[])
          {
             std::string locationtype = Form("%s_L%d%s",subdet.c_str(),l,t.c_str());
             //std::cout << "preparing histograms for " << locationtype << std::endl;
-            h1_[Form("%s_nstrips"    ,locationtype.c_str())]  = new TH1F (Form("%s_nstrips",locationtype.c_str()),     "", 20,0,20);
-            h1_[Form("%s_tanthetatrk",locationtype.c_str())]  = new TH1F (Form("%s_tanthetatrk",locationtype.c_str()), "", 300,-1.5,1.5);
-            h1_[Form("%s_cosphitrk",locationtype.c_str())]    = new TH1F (Form("%s_cosphitrk",locationtype.c_str()), "", 40,-1,1);
-            h1_[Form("%s_variance_w2" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w2",locationtype.c_str()),     "", 100,0,1);
-            h1_[Form("%s_variance_w3" ,locationtype.c_str())] = new TH1F (Form("%s_variance_w3",locationtype.c_str()),     "", 100,0,1);
+            h1_[Form("%s_nstrips"     ,locationtype.c_str())]  = new TH1F (Form("%s_nstrips",locationtype.c_str()),     "", 20,0,20);
+            h1_[Form("%s_tanthetatrk" ,locationtype.c_str())]  = new TH1F (Form("%s_tanthetatrk",locationtype.c_str()), "", 300,-1.5,1.5);
+            h1_[Form("%s_cosphitrk"   ,locationtype.c_str())]  = new TH1F (Form("%s_cosphitrk",locationtype.c_str()), "", 40,-1,1);
+            h1_[Form("%s_variance_w2" ,locationtype.c_str())]  = new TH1F (Form("%s_variance_w2",locationtype.c_str()),     "", 100,0,1);
+            h1_[Form("%s_variance_w3" ,locationtype.c_str())]  = new TH1F (Form("%s_variance_w3",locationtype.c_str()),     "", 100,0,1);
             
             h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] = new TH2F (Form("%s_tanthcosphtrk_nstrip",locationtype.c_str()), "", 360, -0.9, 0.9, 20, 0, 20);
+            h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())]      = new TH2F (Form("%s_thetatrk_nstrip",locationtype.c_str())     , "", 360, -0.9, 0.9, 20, 0, 20);
             h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())]   = new TH2F (Form("%s_tanthcosphtrk_var2",locationtype.c_str())  , "", 360, -0.9, 0.9, 50, 0,  1);
             h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())]   = new TH2F (Form("%s_tanthcosphtrk_var3",locationtype.c_str())  , "", 360, -0.9, 0.9, 50, 0,  1);
+            h2_[Form("%s_thcosphtrk_var2",locationtype.c_str())]      = new TH2F (Form("%s_thcosphtrk_var2",locationtype.c_str())     , "", 360, -0.9, 0.9, 50, 0,  1);
+            h2_[Form("%s_thcosphtrk_var3",locationtype.c_str())]      = new TH2F (Form("%s_thcosphtrk_var3",locationtype.c_str())     , "", 360, -0.9, 0.9, 50, 0,  1);
          }
       }
    }
@@ -81,21 +96,21 @@ void ProcessTheEvent()
    {
       // do whatever pre-selection needed
       int itrk = trackindex_->at(i);
-      if ( ptmin_ > 0 )
+      if ( ptmin_ > 0 && infolocalb_->at(0) > 1. ) // if NO Bfield don't perform any pt selection 
       {
          if ( trackpt_->at(itrk) < ptmin_ ) continue;
       }
-      if ( ptmax_ > 0 )
+      if ( ptmax_ > 0 && infolocalb_->at(0) > 1. )  // if NO Bfield don't perform any pt selection
       {
          if ( trackpt_->at(itrk) > ptmax_ ) continue;
       }
-      if ( etamin_ > -2.5 )
+      if ( etamin_ >= 0 )
       {
-         if ( tracketa_->at(itrk) < etamin_ ) continue;
+         if ( fabs(tracketa_->at(itrk)) < etamin_ ) continue;
       }
-      if ( etamax_ < 2.5 )
+      if ( etamax_ >= 0 )
       {
-         if ( tracketa_->at(itrk) > etamax_ ) continue;
+         if ( fabs(tracketa_->at(itrk)) > etamax_ ) continue;
       }
       if ( hitsvalmin_ > 0 )
       {
@@ -106,7 +121,12 @@ void ProcessTheEvent()
          if ( trackchi2ndof_->at(itrk) > chi2ndfmax_ ) continue;
       }
       
-      if ( fabs(tracketa_->at(itrk)) > 0.2 ) continue;
+      h1_["track_pt"]          -> Fill(trackpt_->at(itrk));
+      h1_["track_eta"]         -> Fill(tracketa_->at(itrk));
+      h1_["track_validhits"]   -> Fill(trackhitsvalid_->at(itrk));
+      h1_["track_chi2ndof"]    -> Fill(trackchi2ndof_->at(itrk));
+            
+//      if ( fabs(tracketa_->at(itrk)) > 0.2 ) continue;
       // process info
       ProcessTheModule(i);
    }
@@ -127,6 +147,7 @@ void ProcessTheModule(const unsigned int & i)
    int sign = orientation_[mod];
    float tantheta = TMath::Tan(localdir.Theta());
    float cosphi   = TMath::Cos(localdir.Phi());
+   float theta    = localdir.Theta();
    
    unsigned short nstrips  = nstrips_->at(i);
    float variance = variance_->at(i);
@@ -137,23 +158,38 @@ void ProcessTheModule(const unsigned int & i)
    
    // nstrips
    h2_[Form("%s_tanthcosphtrk_nstrip",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,nstrips);
+   h2_[Form("%s_thetatrk_nstrip",locationtype.c_str())]      -> Fill(sign*theta*cosphi,nstrips);
    
    // variance for width == 2
    if ( nstrips == 2 )
    {
-      h1_[Form("%s_variance_w2"    ,locationtype.c_str())] -> Fill(variance);
-      h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      if ( saveHistosMods_ ) h2_ct_var2_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+      h1_[Form("%s_variance_w2"       ,locationtype.c_str())]    -> Fill(variance);
+      h2_[Form("%s_tanthcosphtrk_var2",locationtype.c_str())]    -> Fill(sign*cosphi*tantheta,variance);
+      h2_[Form("%s_thcosphtrk_var2"   ,locationtype.c_str())]    -> Fill(sign*cosphi*theta,variance);
+      if ( saveHistosMods_ )
+      {
+         h2_ct_var2_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+         h2_t_var2_m_[mod]  -> Fill(sign*cosphi*theta,variance);
+      }
    }
    // variance for width == 3
    if ( nstrips == 3 )
    {
-      h1_[Form("%s_variance_w3"    ,locationtype.c_str())] -> Fill(variance);
-      h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())] -> Fill(sign*cosphi*tantheta,variance);
-      if ( saveHistosMods_ ) h2_ct_var3_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+      h1_[Form("%s_variance_w3"       ,locationtype.c_str())]    -> Fill(variance);
+      h2_[Form("%s_tanthcosphtrk_var3",locationtype.c_str())]    -> Fill(sign*cosphi*tantheta,variance);
+      h2_[Form("%s_thcosphtrk_var3"   ,locationtype.c_str())]    -> Fill(sign*cosphi*theta,variance);
+      if ( saveHistosMods_ )
+      {
+         h2_ct_var3_m_[mod] -> Fill(sign*cosphi*tantheta,variance);
+         h2_t_var3_m_[mod]  -> Fill(sign*cosphi*theta,variance);
+      }
    }
    
-   if ( saveHistosMods_ ) h2_ct_w_m_[mod] -> Fill(sign*cosphi*tantheta,nstrips);
+   if ( saveHistosMods_ )
+   {
+      h2_ct_w_m_[mod] -> Fill(sign*cosphi*tantheta,nstrips);
+      h2_t_w_m_[mod]  -> Fill(sign*cosphi*theta,nstrips);
+   }
    
    
 }
@@ -173,7 +209,7 @@ void AnalyzeTheTree()
             std::string filename = ls_file.path().filename().string();
             if ( filename.find(fileprefix) == std::string::npos || filename.find(".root") == std::string::npos ) continue;
             
-            std::cout << "Working on file : " << ls_file.path().string();
+            std::cout << "Working on file : " << ls_file.path().string() << std::endl;
             
             TFile * f = TFile::Open(ls_file.path().string().c_str(),"OLD");
             
@@ -249,7 +285,17 @@ void WriteOutputs(const bool & savehistos)
          if ( h.second -> GetEntries() == 0 ) continue;
          WriteOutputsModules(out,h.second);
       }
+      for ( auto h : h2_t_w_m_ )
+      {
+         if ( h.second -> GetEntries() == 0 ) continue;
+         WriteOutputsModules(out,h.second);
+      }
       for ( auto h : h2_ct_var2_m_ )
+      {
+         if ( h.second -> GetEntries() == 0 ) continue;
+         WriteOutputsModules(out,h.second);
+      }
+      for ( auto h : h2_t_var2_m_ )
       {
          if ( h.second -> GetEntries() == 0 ) continue;
          WriteOutputsModules(out,h.second);
@@ -329,9 +375,17 @@ void InfoTreeBranches(TTree * tree)
       // histograms for each module
       if ( saveHistosMods_ )
       {
-         h2_ct_w_m_[mod]    = new TH2F (Form("ct_w_m_%s_%d",ModuleLocationType(mod).c_str(),mod)   ,"", 360, -0.9, 0.9, 20, 0, 20);	
-         h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"", 360, -0.9, 0.9, 50, 0,  1);	
-         h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod),"", 360, -0.9, 0.9, 50, 0,  1);	
+         h1_[Form("%s_%d_nstrips"     ,ModuleLocationType(mod).c_str(),mod)]  = new TH1F (Form("%s_%d_nstrips"    ,ModuleLocationType(mod).c_str(),mod), "", 10,0,10);
+         h1_[Form("%s_%d_tanthetatrk" ,ModuleLocationType(mod).c_str(),mod)]  = new TH1F (Form("%s_%d_tanthetatrk",ModuleLocationType(mod).c_str(),mod), "", 40,-1.,1.);
+         h1_[Form("%s_%d_cosphitrk"   ,ModuleLocationType(mod).c_str(),mod)]  = new TH1F (Form("%s_%d_cosphitrk"  ,ModuleLocationType(mod).c_str(),mod), "", 40,-1,1);
+         h1_[Form("%s_%d_variance_w2" ,ModuleLocationType(mod).c_str(),mod)]  = new TH1F (Form("%s_%d_variance_w2",ModuleLocationType(mod).c_str(),mod), "", 20,0,1);
+         h1_[Form("%s_%d_variance_w3" ,ModuleLocationType(mod).c_str(),mod)]  = new TH1F (Form("%s_%d_variance_w3",ModuleLocationType(mod).c_str(),mod), "", 20,0,1);
+         h2_ct_w_m_[mod]    = new TH2F (Form("ct_w_m_%s_%d"   ,ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 10, 0, 10); 
+         h2_t_w_m_[mod]     = new TH2F (Form("t_w_m_%s_%d"    ,ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 10, 0, 10); 
+         h2_ct_var2_m_[mod] = new TH2F (Form("ct_var2_m_%s_%d",ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 20, 0,  1); 
+         h2_ct_var3_m_[mod] = new TH2F (Form("ct_var3_m_%s_%d",ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 20, 0,  1); 
+         h2_t_var2_m_[mod]  = new TH2F (Form("t_var2_m_%s_%d" ,ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 20, 0,  1); 
+         h2_t_var3_m_[mod]  = new TH2F (Form("t_var3_m_%s_%d" ,ModuleLocationType(mod).c_str(),mod)   ,"", 90, -0.9, 0.9, 20, 0,  1); 
       }
    }
 }               
