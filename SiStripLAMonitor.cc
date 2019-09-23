@@ -96,30 +96,12 @@ void ProcessTheEvent()
    {
       // do whatever pre-selection needed
       int itrk = trackindex_->at(i);
-      if ( ptmin_ > 0 && infolocalb_->at(0) > 1. ) // if NO Bfield don't perform any pt selection 
-      {
-         if ( trackpt_->at(itrk) < ptmin_ ) continue;
-      }
-      if ( ptmax_ > 0 && infolocalb_->at(0) > 1. )  // if NO Bfield don't perform any pt selection
-      {
-         if ( trackpt_->at(itrk) > ptmax_ ) continue;
-      }
-      if ( etamin_ >= 0 )
-      {
-         if ( fabs(tracketa_->at(itrk)) < etamin_ ) continue;
-      }
-      if ( etamax_ >= 0 )
-      {
-         if ( fabs(tracketa_->at(itrk)) > etamax_ ) continue;
-      }
-      if ( hitsvalmin_ > 0 )
-      {
-         if ( int(trackhitsvalid_->at(itrk)) < hitsvalmin_ ) continue;
-      }
-      if ( chi2ndfmax_ > 0 )
-      {
-         if ( trackchi2ndof_->at(itrk) > chi2ndfmax_ ) continue;
-      }
+      if ( ptmin_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) < ptmin_ ) continue; // if NO Bfield don't perform any pt selection 
+      if ( ptmax_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) > ptmax_ ) continue; // if NO Bfield don't perform any pt selection
+      if ( tracketa_->at(itrk) < etamin_ ) continue;
+      if ( tracketa_->at(itrk) > etamax_ ) continue;
+      if ( hitsvalmin_ > 0 && int(trackhitsvalid_->at(itrk)) < hitsvalmin_ ) continue;
+      if ( chi2ndfmax_ > 0 && trackchi2ndof_->at(itrk) > chi2ndfmax_ ) continue;
       
       h1_["track_pt"]          -> Fill(trackpt_->at(itrk));
       h1_["track_eta"]         -> Fill(tracketa_->at(itrk));
