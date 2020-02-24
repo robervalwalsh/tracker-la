@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream> 
 #include <regex>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -38,6 +39,12 @@ int main(int argc, char * argv[])
    
    std::cout << "SiStripLAMonitor finished!" << std::endl;
    
+   std::ofstream finished;
+   finished.open("finished.txt");
+   finished << "SiStripLAMonitor finished!" << "\n";
+   finished.close();
+   
+   
    return 0;
 }
 
@@ -46,10 +53,17 @@ int Init(int argc, char * argv[])
    // read configuration
    if ( SiStripLAMonitorConfig(argc, argv) != 0 ) return -1;
    
-   h1_["track_pt"]        = new TH1F ("track_pt","", 400,0,200);
-   h1_["track_eta"]       = new TH1F ("track_eta","", 240,-3,3);
+   h1_["track_pt"]        = new TH1F ("track_pt","", 2000,0,1000);
+   h1_["track_eta"]       = new TH1F ("track_eta","", 100,-4,4);
+   h1_["track_phi"]       = new TH1F ("track_phi","", 80,-3.2,3.2);
    h1_["track_validhits"] = new TH1F ("track_validhits","", 50,0,50);
-   h1_["track_chi2ndof"]  = new TH1F ("track_chi2ndof","", 60,0,3);
+   h1_["track_chi2ndof"]  = new TH1F ("track_chi2ndof","", 100,0,5);
+   h2_["track_chi2xhits"] = new TH2F ("track_chi2xhits_2d","", 100,0,5,50,0,50);
+   h2_["track_ptxhits"]   = new TH2F ("track_ptxhits_2d","", 200,0,100,50,0,50);
+   h2_["track_etaxhits"]  = new TH2F ("track_etaxhits_2d","", 60,-3,3,50,0,50);
+   h2_["track_ptxchi2"]   = new TH2F ("track_ptxchi2_2d","", 200,0,100,100,0,5);
+   h2_["track_ptxeta"]    = new TH2F ("track_ptxeta_2d","", 200,0,100,60,-3,3);
+   h2_["track_etaxchi2"]  = new TH2F ("track_etaxchi2_2d","", 60,-3,3,100,0,5);
    
    //
    nlayers_["TIB"] = 4;
@@ -92,22 +106,49 @@ int Init(int argc, char * argv[])
 
 void ProcessTheEvent()
 {
+   
+   bool trk_done[1000] = { false };
+   
+   
    for ( size_t i = 0 ; i < rawid_->size(); ++i ) // loop over modules
    {
       // do whatever pre-selection needed
       int itrk = trackindex_->at(i);
-      if ( ptmin_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) < ptmin_ ) continue; // if NO Bfield don't perform any pt selection 
-      if ( ptmax_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) > ptmax_ ) continue; // if NO Bfield don't perform any pt selection
-      if ( tracketa_->at(itrk) < etamin_ ) continue;
-      if ( tracketa_->at(itrk) > etamax_ ) continue;
-      if ( hitsvalmin_ > 0 && int(trackhitsvalid_->at(itrk)) < hitsvalmin_ ) continue;
-      if ( chi2ndfmax_ > 0 && trackchi2ndof_->at(itrk) > chi2ndfmax_ ) continue;
       
-      h1_["track_pt"]          -> Fill(trackpt_->at(itrk));
-      h1_["track_eta"]         -> Fill(tracketa_->at(itrk));
-      h1_["track_validhits"]   -> Fill(trackhitsvalid_->at(itrk));
-      h1_["track_chi2ndof"]    -> Fill(trackchi2ndof_->at(itrk));
-            
+   
+      if ( itrk >= 1000 )
+      {
+         std::cout << "SiStripLAMonitor::ProcessTheEvent() *** WARNING *** More than 1000 tracks!!! Skipping!" << std::endl;
+         break;
+      }
+      
+      if ( ptmin_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) < ptmin_ ) continue; // if NO Bfield don't perform any pt selection 
+      if ( ptmax_ > 0 && infolocalb_->at(0) > 1. && trackpt_->at(itrk) >= ptmax_ ) continue; // if NO Bfield don't perform any pt selection
+      if ( tracketa_->at(itrk) < etamin_ ) continue;
+      if ( tracketa_->at(itrk) >= etamax_ ) continue;
+      if ( hitsvalmin_ > 0 && int(trackhitsvalid_->at(itrk)) < hitsvalmin_ ) continue;
+      if ( hitsvalmax_ > 0 && int(trackhitsvalid_->at(itrk)) >= hitsvalmax_ ) continue;
+      if ( chi2ndfmax_ > 0 && trackchi2ndof_->at(itrk) >= chi2ndfmax_ ) continue;
+      if ( chi2ndfmin_ > 0 && trackchi2ndof_->at(itrk) < chi2ndfmin_ ) continue;
+      
+//      std::cout << trk_done[itrk] << std::endl;
+      if ( ! trk_done[itrk] )
+      {
+         h1_["track_pt"]          -> Fill(trackpt_->at(itrk));
+         h1_["track_eta"]         -> Fill(tracketa_->at(itrk));
+         h1_["track_phi"]         -> Fill(trackphi_->at(itrk));
+         h1_["track_validhits"]   -> Fill(trackhitsvalid_->at(itrk));
+         h1_["track_chi2ndof"]    -> Fill(trackchi2ndof_->at(itrk));
+         h2_["track_chi2xhits"]   -> Fill(trackchi2ndof_->at(itrk),trackhitsvalid_->at(itrk));
+         h2_["track_ptxhits"]     -> Fill(trackpt_->at(itrk),trackhitsvalid_->at(itrk));
+         h2_["track_etaxhits"]    -> Fill(tracketa_->at(itrk),trackhitsvalid_->at(itrk));
+         h2_["track_ptxchi2"]     -> Fill(trackpt_->at(itrk),trackchi2ndof_->at(itrk));
+         h2_["track_ptxeta"]      -> Fill(trackpt_->at(itrk),tracketa_->at(itrk));
+         h2_["track_etaxchi2"]    -> Fill(tracketa_->at(itrk),trackchi2ndof_->at(itrk));
+         
+         trk_done[itrk] = true;
+      }
+      
 //      if ( fabs(tracketa_->at(itrk)) > 0.2 ) continue;
       // process info
       ProcessTheModule(i);
@@ -338,6 +379,7 @@ void CalibTreeBranches(TTree * tree)
    // track data
    tree -> SetBranchAddress((trackPrefix_ + "trackpt"        + trackSuffix_).c_str(), &trackpt_        );
    tree -> SetBranchAddress((trackPrefix_ + "tracketa"       + trackSuffix_).c_str(), &tracketa_       );
+   tree -> SetBranchAddress((trackPrefix_ + "trackphi"       + trackSuffix_).c_str(), &trackphi_       );
    tree -> SetBranchAddress((trackPrefix_ + "trackhitsvalid" + trackSuffix_).c_str(), &trackhitsvalid_ );
    tree -> SetBranchAddress((trackPrefix_ + "trackchi2ndof"  + trackSuffix_).c_str(), &trackchi2ndof_  );
 }

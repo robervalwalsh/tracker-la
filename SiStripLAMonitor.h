@@ -48,6 +48,7 @@ std::vector<float>          * variance_   = nullptr;
 // track data
 std::vector<float>        * trackpt_        = nullptr;
 std::vector<float>        * tracketa_       = nullptr;
+std::vector<float>        * trackphi_       = nullptr;
 std::vector<unsigned int> * trackhitsvalid_ = nullptr;
 std::vector<float>        * trackchi2ndof_  = nullptr;
 
