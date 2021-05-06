@@ -25,8 +25,11 @@ std::string ModuleLocationType(const unsigned int &);
 // la info tree
 std::vector<unsigned int> * inforawid_               = nullptr;
 std::vector<float>        * infoglobalZofunitlocalY_ = nullptr;
+std::vector<float>        * infolocalb_              = nullptr;
+std::vector<float>        * infola_                  = nullptr;
 
 std::map<unsigned int,int> orientation_;
+std::map<unsigned int,float> la_db_;
 
 // event data
 unsigned int eventnumber_ = 0;
@@ -45,6 +48,7 @@ std::vector<float>          * variance_   = nullptr;
 // track data
 std::vector<float>        * trackpt_        = nullptr;
 std::vector<float>        * tracketa_       = nullptr;
+std::vector<float>        * trackphi_       = nullptr;
 std::vector<unsigned int> * trackhitsvalid_ = nullptr;
 std::vector<float>        * trackchi2ndof_  = nullptr;
 
@@ -56,11 +60,18 @@ std::map<int, TH2F*> h2_ct_w_m_;
 std::map<int, TH2F*> h2_ct_var2_m_;
 std::map<int, TH2F*> h2_ct_var3_m_;
 
+std::map<int, TH2F*> h2_t_w_m_;
+std::map<int, TH2F*> h2_t_var2_m_;
+std::map<int, TH2F*> h2_t_var3_m_;
+
 std::map<std::string, TProfile*> hp_;
 
 // info
 std::map<std::string,int> nlayers_;
 std::vector<std::string> modtypes_;
+
+std::map<std::string,float> la_;
+
 
 
 #endif

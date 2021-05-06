@@ -36,7 +36,9 @@ float etamax_;
 float ptmin_;
 float ptmax_;
 int   hitsvalmin_;
+int   hitsvalmax_;
 float chi2ndfmax_;
+float chi2ndfmin_;
 
 int SiStripLAMonitorConfig(int argc, char * argv[])
 {
@@ -71,9 +73,11 @@ int SiStripLAMonitorConfig(int argc, char * argv[])
          ("CalibSuffix",po::value <std::string> (&calibSuffix_)->default_value(""),"Calibration suffix")
          ("ptMin",po::value <float> (&ptmin_)->default_value(-1), "Min track pT")
          ("ptMax",po::value <float> (&ptmax_)->default_value(-1), "Max track pT")
-         ("etaMin",po::value <float> (&etamin_)->default_value(-5), "Min track eta")
-         ("etaMax",po::value <float> (&etamax_)->default_value(5) , "Max track eta")
+         ("etaMin",po::value <float> (&etamin_)->default_value(-10), "Min track eta")
+         ("etaMax",po::value <float> (&etamax_)->default_value(10) , "Max track eta")
          ("nHitsValidMin",po::value <int> (&hitsvalmin_)->default_value(-1) , "Min number of valid hits")
+         ("nHitsValidMax",po::value <int> (&hitsvalmax_)->default_value(-1) , "Max number of valid hits")
+         ("chi2ndofMin",po::value <float> (&chi2ndfmin_)->default_value(-1) , "Min chi2/ndof")
          ("chi2ndofMax",po::value <float> (&chi2ndfmax_)->default_value(-1) , "Max chi2/ndof");
       
       po::variables_map vm; 
