@@ -1,13 +1,24 @@
 <use name="FWCore/Framework"/>
 <use name="FWCore/ParameterSet"/>
 <use name="root"/>
+<use name="rootdataframe"/>
 <use name="rootmath"/>
 <use name="rootgraphics"/>
 <use name="roofit" />
 <use name="boost" />
+<use name="boost_system" />
+<use name="boost_filesystem" />
 <use name="boost_program_options" />
 
 <bin   name="SiStripLAMonitor" file="SiStripLAMonitor.cc">
+<flags   LDFLAGS="-lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lz -pthread -lm -ldl -rdynamic"/>
+</bin>
+
+<bin   name="SiStripLAMonitorNano" file="SiStripLAMonitorNano.cc">
+<flags   LDFLAGS="-lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lz -pthread -lm -ldl -rdynamic"/>
+</bin>
+
+<bin   name="LAMonitor" file="LAMonitor.cc">
 <flags   LDFLAGS="-lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lz -pthread -lm -ldl -rdynamic"/>
 </bin>
 
