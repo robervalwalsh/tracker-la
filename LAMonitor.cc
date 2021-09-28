@@ -5,6 +5,7 @@
 
 int main(int argc, char * argv[])
 {
+   
    // Read configuration
    if ( LAMonitorConfig(argc, argv) != 0 ) return -1;
 
@@ -122,7 +123,7 @@ int main(int argc, char * argv[])
    // some just-in-case filters, they are expected to cut nothing
    // investigate otherwise
    df_evt_1 = df_evt_1
-      .Filter("norigtrack>0","Tracks >= 1"  ) 
+      .Filter("ntrack>0","Tracks >= 1"  ) 
       .Filter("ncluster>0"  ,"Clusters >= 1")
    ;
    
@@ -130,23 +131,23 @@ int main(int argc, char * argv[])
    // Good tracks
 //    if ( cfg_bfield_ == 0 )
 //       df_evt_1 = df_evt_1
-//          .Define("origtrack_good" ,track_good_0T ,{"origtrack_hitsvalid","track_chi2ndof"});
+//          .Define("track_good" ,track_good_0T ,{"track_hitsvalid","track_chi2ndof"});
 //    else
    df_evt_1 = df_evt_1
-      .Define("origtrack_good" ,track_good    ,{"origtrack_pt","origtrack_hitsvalid","track_chi2ndof"});
+      .Define("track_good" ,track_good    ,{"track_pt","track_hitsvalid","track_chi2ndof"});
    
    // Track selection
    df_evt_1 = df_evt_1
-      .Define("origtrack_index"        ,list_index_f            ,{"origtrack_pt"})
-      .Define("seltrack_pt"            ,"origtrack_pt[origtrack_good]")
+      .Define("track_index"        ,list_index_f            ,{"track_pt"})
+      .Define("seltrack_pt"            ,"track_pt[track_good]")
       .Filter("seltrack_pt.size()>0"   ,"Selected tracks >= 1, "+track_selection)
       .Define("seltrack_n"             ,"seltrack_pt.size()")
-      .Define("seltrack_index"         ,"origtrack_index[origtrack_good]")
+      .Define("seltrack_index"         ,"track_index[track_good]")
    ;
    
    // Clusters of selected tracks
    df_evt_1 = df_evt_1
-      .Define("cluster_track_good"         , cluster_track_good ,{"origtrack_good","cluster_trackindex"})
+      .Define("cluster_track_good"         , cluster_track_good ,{"track_good","cluster_trackindex"})
       .Define("selcluster_rawid"           , "cluster_rawid[cluster_track_good]")
       .Filter("selcluster_rawid.size()>0"  , "Selected tracks clusters >= 1")
       .Define("selcluster_n"               , "selcluster_rawid.size()")
@@ -186,7 +187,7 @@ int main(int argc, char * argv[])
       const char * location = Form("selcluster_location_type == \"%s\"",layer);
       df_evt_1 = df_evt_1
          .Define(layers[l]+"_nstrips"     , Form("selcluster_nstrips[%s]"   ,location))
-         .Filter(layers[l]+"_nstrips.size()>0")
+//         .Filter(layers[l]+"_nstrips.size()>0")
          .Define(layers[l]+"_thetatrack"  , Form("selcluster_thetatrack[%s]",location))
          .Define(layers[l]+"_trackindex"  , Form("selcluster_trackindex[%s]",location))
       ;
