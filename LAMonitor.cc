@@ -5,6 +5,7 @@
 
 int main(int argc, char * argv[])
 {
+   const char * refit = "";
    
    // Read configuration
    if ( LAMonitorConfig(argc, argv) != 0 ) return -1;
@@ -123,7 +124,7 @@ int main(int argc, char * argv[])
    // some just-in-case filters, they are expected to cut nothing
    // investigate otherwise
    df_evt_1 = df_evt_1
-      .Filter("ntrack>0","Tracks >= 1"  ) 
+      .Filter(Form("n%strack>0",refit),"Tracks >= 1"  ) 
       .Filter("ncluster>0"  ,"Clusters >= 1")
    ;
    
@@ -131,23 +132,23 @@ int main(int argc, char * argv[])
    // Good tracks
 //    if ( cfg_bfield_ == 0 )
 //       df_evt_1 = df_evt_1
-//          .Define("track_good" ,track_good_0T ,{"track_hitsvalid","track_chi2ndof"});
+//          .Define(Form("%strack_good",refit) ,track_good_0T ,{Form("%strack_hitsvalid",refit),"track_chi2ndof"});
 //    else
    df_evt_1 = df_evt_1
-      .Define("track_good" ,track_good    ,{"track_pt","track_hitsvalid","track_chi2ndof"});
+      .Define(Form("%strack_good",refit) ,track_good    ,{Form("%strack_pt",refit),Form("%strack_hitsvalid",refit),"track_chi2ndof"});
    
    // Track selection
    df_evt_1 = df_evt_1
-      .Define("track_index"        ,list_index_f            ,{"track_pt"})
-      .Define("seltrack_pt"            ,"track_pt[track_good]")
+      .Define(Form("%strack_index",refit)        ,list_index_f            ,{Form("%strack_pt",refit)})
+      .Define("seltrack_pt"            ,Form("%strack_pt[%strack_good]",refit,refit))
       .Filter("seltrack_pt.size()>0"   ,"Selected tracks >= 1, "+track_selection)
       .Define("seltrack_n"             ,"seltrack_pt.size()")
-      .Define("seltrack_index"         ,"track_index[track_good]")
+      .Define("seltrack_index"         ,Form("%strack_index[%strack_good]",refit,refit))
    ;
    
    // Clusters of selected tracks
    df_evt_1 = df_evt_1
-      .Define("cluster_track_good"         , cluster_track_good ,{"track_good","cluster_trackindex"})
+      .Define("cluster_track_good"         , cluster_track_good ,{Form("%strack_good",refit),"cluster_trackindex"})
       .Define("selcluster_rawid"           , "cluster_rawid[cluster_track_good]")
       .Filter("selcluster_rawid.size()>0"  , "Selected tracks clusters >= 1")
       .Define("selcluster_n"               , "selcluster_rawid.size()")
