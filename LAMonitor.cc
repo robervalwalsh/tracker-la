@@ -18,7 +18,7 @@ int main(int argc, char * argv[])
    }
    
    // Read Events and Runs dataframes
-   std::string filename = cfg_calibTreeDir_+"/calibTree*.root";
+   std::string filename = cfg_calibTreeDir_+"/*.root";
    ROOT::RDataFrame df_evt = ROOT::RDataFrame("Events",filename.c_str());
    ROOT::RDataFrame df_run = ROOT::RDataFrame("Runs",filename.c_str());
    
