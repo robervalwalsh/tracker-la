@@ -51,6 +51,9 @@ std::string module_location_type(const unsigned int & mod);
 /// Get the track local theta angle
 rvec_f local_theta_track(const rvec_f & dir_x, const rvec_f & dir_y, const rvec_f & dir_z, const rvec_i & orientation);
 
+/// Get the track local tan(theta)
+rvec_f local_tantheta_track(const rvec_f & dir_x, const rvec_f & dir_y, const rvec_f & dir_z, const rvec_i & orientation);
+
 /// flag cluster with good track
 rvec_b cluster_track_good(const rvec_b & goodtrack , const rvec_i &trackidx );
 
@@ -157,6 +160,22 @@ rvec_f local_theta_track(const rvec_f & dir_x, const rvec_f & dir_y, const rvec_
       theta.push_back(o*th*c_phi);
    }
    return theta;
+}
+
+// Get the track local tan(theta)
+rvec_f local_tantheta_track(const rvec_f & dir_x, const rvec_f & dir_y, const rvec_f & dir_z, const rvec_i & orientation)
+{
+   rvec_f tantheta;
+   for ( auto & o : orientation )
+   {
+      auto i = &o - &orientation[0];
+      TVector3 dir(dir_x[i],dir_y[i],dir_z[i]); // to do: use RVec properties w/o loop
+      float th = dir.Theta();
+      float c_phi = TMath::Cos(dir.Phi()); // integrate
+      float tanth = TMath::Tan(th*c_phi);
+      tantheta.push_back(o*tanth);
+   }
+   return tantheta;
 }
 
 // flag cluster with good track
