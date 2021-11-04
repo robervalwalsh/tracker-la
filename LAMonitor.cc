@@ -5,7 +5,7 @@
 
 int main(int argc, char * argv[])
 {
-   const char * refit = "";
+   const char * refit = cfg_fit_.c_str();
    
    // Read configuration
    if ( LAMonitorConfig(argc, argv) != 0 ) return -1;
@@ -135,7 +135,7 @@ int main(int argc, char * argv[])
 //          .Define(Form("%strack_good",refit) ,track_good_0T ,{Form("%strack_hitsvalid",refit),"track_chi2ndof"});
 //    else
    df_evt_1 = df_evt_1
-      .Define(Form("%strack_good",refit) ,track_good    ,{Form("%strack_pt",refit),Form("%strack_hitsvalid",refit),"track_chi2ndof"});
+      .Define(Form("%strack_good",refit) ,track_good    ,{Form("%strack_pt",refit),Form("%strack_hitsvalid",refit),Form("%strack_chi2ndof",refit)});
    
    // Track selection
    df_evt_1 = df_evt_1
@@ -144,6 +144,10 @@ int main(int argc, char * argv[])
       .Filter("seltrack_pt.size()>0"   ,"Selected tracks >= 1, "+track_selection)
       .Define("seltrack_n"             ,"seltrack_pt.size()")
       .Define("seltrack_index"         ,Form("%strack_index[%strack_good]",refit,refit))
+      .Define("seltrack_eta"           ,Form("%strack_eta[%strack_good]",refit,refit))
+      .Define("seltrack_phi"           ,Form("%strack_phi[%strack_good]",refit,refit))
+      .Define("seltrack_chi2ndof"      ,Form("%strack_chi2ndof[%strack_good]",refit,refit))
+      .Define("seltrack_hitsvalid"     ,Form("%strack_hitsvalid[%strack_good]",refit,refit))
    ;
    
    // Clusters of selected tracks
@@ -160,6 +164,7 @@ int main(int argc, char * argv[])
       .Define("selcluster_location_type"   , modules_location_type                     ,{"selcluster_rawid"})                      // name of location/type of module
       .Define("selcluster_orientation"     , module_orientation                        ,{"run","selcluster_rawid"})
       .Define("selcluster_thetatrack"      , local_theta_track                         ,{"selcluster_localdirx","selcluster_localdiry","selcluster_localdirz","selcluster_orientation"})
+      .Define("selcluster_tanthetatrack"   , local_tantheta_track                      ,{"selcluster_localdirx","selcluster_localdiry","selcluster_localdirz","selcluster_orientation"})
    ;
 
    // output file 
@@ -181,6 +186,33 @@ int main(int argc, char * argv[])
    std::map<std::string, RResultPtr<::TH2D > > h2d;
    std::map<std::string, RResultPtr<::TProfile > > hpf;
    
+//    hmod1d["seltrack_n"]                = TH1DModel("seltrack_n","",20, 0, 20);
+//    hmod1d["seltrack_pt"]               = TH1DModel("seltrack_pt","",200, 0, 200);
+//    hmod1d["seltrack_eta"]              = TH1DModel("seltrack_eta","",50, -2.5, 2.5);
+//    hmod1d["seltrack_phi"]              = TH1DModel("seltrack_phi","",64, -3.2, 3.2);
+//    hmod1d["seltrack_chi2ndof"]         = TH1DModel("seltrack_chi2ndof","",200, 0, 20);
+//    hmod1d["seltrack_hitsvalid"]        = TH1DModel("seltrack_hitsvalid","",50, 0, 50);
+   hmod1d["seltrack_n"]                = TH1DModel("seltrack_n","",1000, 0, 1000);
+   hmod1d["seltrack_pt"]               = TH1DModel("seltrack_pt","",2000, 0,1000);
+   hmod1d["seltrack_eta"]              = TH1DModel("seltrack_eta","",100, -4, 4);
+   hmod1d["seltrack_phi"]              = TH1DModel("seltrack_phi","",80, -3.2, 3.2);
+   hmod1d["seltrack_chi2ndof"]         = TH1DModel("seltrack_chi2ndof","",100, 0, 5);
+   hmod1d["seltrack_hitsvalid"]        = TH1DModel("seltrack_hitsvalid","",50, 0, 50);
+   
+   h1d["seltrack_n"]                = df_evt_1.Histo1D(hmod1d["seltrack_n"],"seltrack_n");
+   h1d["seltrack_pt"]               = df_evt_1.Histo1D(hmod1d["seltrack_pt"],"seltrack_pt");
+   h1d["seltrack_eta"]              = df_evt_1.Histo1D(hmod1d["seltrack_eta"],"seltrack_eta");
+   h1d["seltrack_phi"]              = df_evt_1.Histo1D(hmod1d["seltrack_phi"],"seltrack_phi");
+   h1d["seltrack_chi2ndof"]         = df_evt_1.Histo1D(hmod1d["seltrack_chi2ndof"],"seltrack_chi2ndof");
+   h1d["seltrack_hitsvalid"]        = df_evt_1.Histo1D(hmod1d["seltrack_hitsvalid"],"seltrack_hitsvalid");
+    
+   h1d["seltrack_n"]         -> Write(); 
+   h1d["seltrack_pt"]        -> Write(); 
+   h1d["seltrack_eta"]       -> Write(); 
+   h1d["seltrack_phi"]       -> Write(); 
+   h1d["seltrack_chi2ndof"]  -> Write(); 
+   h1d["seltrack_hitsvalid"] -> Write();    
+   
    // loop over layers
    for ( size_t l = 0 ; l < layers.size() ; ++l )
    {
@@ -189,26 +221,36 @@ int main(int argc, char * argv[])
       df_evt_1 = df_evt_1
          .Define(layers[l]+"_nstrips"     , Form("selcluster_nstrips[%s]"   ,location))
 //         .Filter(layers[l]+"_nstrips.size()>0")
-         .Define(layers[l]+"_thetatrack"  , Form("selcluster_thetatrack[%s]",location))
-         .Define(layers[l]+"_trackindex"  , Form("selcluster_trackindex[%s]",location))
+         .Define(layers[l]+"_thetatrack"   , Form("selcluster_thetatrack[%s]",location))
+         .Define(layers[l]+"_tanthetatrack", Form("selcluster_tanthetatrack[%s]",location))
+         .Define(layers[l]+"_trackindex"   , Form("selcluster_trackindex[%s]",location))
       ;
 // Histo models
       hmod1d[Form("%s_nstrips",layer)]                = TH1DModel(Form("%s_nstrips",layer),"",20, 0, 20);
       hmod1d[Form("%s_thetatrack",layer)]             = TH1DModel(Form("%s_thetatrack",layer),"",360, -0.9, 0.9);
+      hmod1d[Form("%s_tanthetatrack",layer)]          = TH1DModel(Form("%s_tanthetatrack",layer),"",360, -0.9, 0.9);
       hmod2d[Form("%s_thetatrack_nstrips",layer)]     = TH2DModel(Form("%s_thetatrack_nstrips",layer),"",360, -0.9, 0.9, 20, 0, 20);
+      hmod2d[Form("%s_tanthetatrack_nstrips",layer)]  = TH2DModel(Form("%s_tanthetatrack_nstrips",layer),"",360, -0.9, 0.9, 20, 0, 20);
       hmodpf[Form("%s_thetatrack_nstrips_pfx",layer)] = TProfile1DModel(Form("%s_thetatrack_nstrips_pfx",layer),"",360, -0.9, 0.9);
+      hmodpf[Form("%s_tanthetatrack_nstrips_pfx",layer)] = TProfile1DModel(Form("%s_tanthetatrack_nstrips_pfx",layer),"",360, -0.9, 0.9);
       
 // Fill Histos
       h1d[Form("%s_nstrips",layer)]                = df_evt_1.Histo1D(hmod1d[Form("%s_nstrips",layer)],Form("%s_nstrips",layer));
       h1d[Form("%s_thetatrack",layer)]             = df_evt_1.Histo1D(hmod1d[Form("%s_thetatrack",layer)],Form("%s_thetatrack",layer));
+      h1d[Form("%s_tanthetatrack",layer)]          = df_evt_1.Histo1D(hmod1d[Form("%s_tanthetatrack",layer)],Form("%s_tanthetatrack",layer));
       h2d[Form("%s_thetatrack_nstrips",layer)]     = df_evt_1.Histo2D(hmod2d[Form("%s_thetatrack_nstrips",layer)],Form("%s_thetatrack",layer),Form("%s_nstrips",layer));
+      h2d[Form("%s_tanthetatrack_nstrips",layer)]  = df_evt_1.Histo2D(hmod2d[Form("%s_tanthetatrack_nstrips",layer)],Form("%s_tanthetatrack",layer),Form("%s_nstrips",layer));
       hpf[Form("%s_thetatrack_nstrips_pfx",layer)] = df_evt_1.Profile1D(hmodpf[Form("%s_thetatrack_nstrips_pfx",layer)],Form("%s_thetatrack",layer),Form("%s_nstrips",layer));
+      hpf[Form("%s_tanthetatrack_nstrips_pfx",layer)] = df_evt_1.Profile1D(hmodpf[Form("%s_tanthetatrack_nstrips_pfx",layer)],Form("%s_tanthetatrack",layer),Form("%s_nstrips",layer));
       
 // Write Histos
       h1d[Form("%s_nstrips",layer)]  -> Write();  
       h1d[Form("%s_thetatrack",layer)] -> Write();
+      h1d[Form("%s_tanthetatrack",layer)] -> Write();
       h2d[Form("%s_thetatrack_nstrips",layer)] -> Write();
+      h2d[Form("%s_tanthetatrack_nstrips",layer)] -> Write();
       hpf[Form("%s_thetatrack_nstrips_pfx",layer)] -> Write();
+      hpf[Form("%s_tanthetatrack_nstrips_pfx",layer)] -> Write();
    }
    f_out -> Close();
 
