@@ -24,6 +24,7 @@ std::string cfg_outputfile_;
 std::string cfg_calibTreeDir_;
 std::string cfg_readout_;
 std::string cfg_readout_mode_;
+std::string cfg_fit_;
 
 float cfg_etamin_;
 float cfg_etamax_;
@@ -62,6 +63,7 @@ int LAMonitorConfig(int argc, char * argv[])
          ("calibTreeDirectory",po::value <std::string> (&cfg_calibTreeDir_)->default_value("/nfs/dust/cms/user/walsh/store/group/dpg_tracker_strip/comm_tracker/Strip/Calibration/calibrationtree/Cosmics18Legacy/nanotest3/2018D"),"Direcotry of the calibTree files")
          ("readoutList",po::value <std::string> (&cfg_readout_)->default_value(""))
          ("readoutMode",po::value <std::string> (&cfg_readout_mode_)->default_value("DECO"))
+         ("trackFit",po::value <std::string> (&cfg_fit_)->default_value(""))
          ("outputFile",po::value <std::string> (&cfg_outputfile_)->default_value("LAMonitor"),"Basename of the root output file")
          ("ptMin",po::value  <float> (&cfg_ptmin_)->default_value(-1), "Min track pT")
          ("ptMax",po::value  <float> (&cfg_ptmax_)->default_value(-1), "Max track pT")
